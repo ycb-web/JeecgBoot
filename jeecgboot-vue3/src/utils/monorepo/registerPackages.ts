@@ -1,7 +1,7 @@
 import type { App } from 'vue';
 import { warn } from '/@/utils/log';
 import { registerDynamicRouter } from '/@/utils/monorepo/dynamicRouter';
-import { add } from '/@/components/Form/src/componentMap';
+import { createAsyncComponent } from "@/utils/factory/createAsyncComponent";
 
 // 懒加载模块配置（按需加载，访问相关路由时才加载对应包）
 const lazyPackages = [
@@ -19,6 +19,33 @@ const installOptions = {
 export function registerPackages(app: App) {
   // 仅保存 app 实例，不立即加载模块
   appInstance = app;
+  app.component(
+    'superQuery',
+    createAsyncComponent(() => {
+      return import('@jeecg/online').then(mod => {
+        const str = mod.default.install.toString();
+        const importPaths = extractDynamicImportPaths(str);
+        return import(importPaths.find(path => path.includes('SuperQuery')) ?? importPaths[1])
+      });
+    })
+  );
+  app.component(
+    'JOnlineSearchSelect',
+    createAsyncComponent(() => {
+      return import('@jeecg/online').then(mod => {
+        const str = mod.default.install.toString();
+        const importPaths = extractDynamicImportPaths(str);
+        debugger
+        return import(importPaths.find(path => path.includes('JOnlineSearchSelect')) ?? importPaths[0])
+      });
+    })
+  );
+}
+
+function extractDynamicImportPaths(code: string): string[] {
+  // 匹配 import("...") / import('...')，保留括号内路径（包含 query 参数）
+  const matches = code.matchAll(/import\(\s*(['"])(.*?)\1\s*\)/g);
+  return Array.from(matches, (m) => m[2]).filter(Boolean);
 }
 
 /** 已加载的包缓存 */
